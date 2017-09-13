@@ -138,15 +138,30 @@ class sLdaModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
         """
         return [(self.id2word[id], value) for id, value in self.get_topic_terms(topicid, topn)]
 
-    def get_topics(self):
-        """
-        Returns:
-            np.ndarray: `num_topics` x `vocabulary_size` array of floats which represents
-            the term topic matrix learned during inference.
-        """
-        topics = self.state.get_lambda()
-        return topics / topics.sum(axis=1)[:, None]
+    def do_estep(self, chunk, state=None):
+        
+        if state is None:
+            state = self.state
+        gamma, sstats = self.inference(chunk, collect_sstats=True)
+        state.sstats += sstats
+        state.numdocs += gamma.shape[0]  # avoids calling len(chunk) on a generator
+        return gamma
+    
+    def do_mstep(self, rho, other, extra_pass=False):
+        diff = np.log(self.expElogbeta)
+        self.state.blend(rho, other)
+        diff -= self.state.get_Elogbeta()
+        self.sync_state()
 
+        self.print_topics(5)
+        logger.info("topic diff=%f, rho=%f", np.mean(np.abs(diff)), rho)
+
+        if self.optimize_eta:
+            self.update_eta(self.state.get_lambda(), rho)
+
+        if not extra_pass:
+            self.num_updates += other.numdocs
+    
     def save(self, fname, ignore=['state', 'dispatcher'], separately=None, *args, **kwargs):
         """
         Save the model to file.
