@@ -5,10 +5,6 @@
 # Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
 
 import logging
-import numbers
-import os
-from random import sample
-
 import numpy as np
 import six
 from scipy.special import gammaln, psi  # gamma function utils
@@ -17,7 +13,6 @@ from six.moves import xrange
 
 from gensim import interfaces, utils, matutils
 from gensim.matutils import dirichlet_expectation
-from gensim.matutils import kullback_leibler, hellinger, jaccard_distance, jensen_shannon
 from gensim.models import basemodel, CoherenceModel
 
 # log(sum(exp(x))) that tries to avoid overflow
@@ -203,4 +198,26 @@ class sLdaModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
     
     def save_parameters(self):
         np.savetxt("lambda-%d.txt"%self._iterations, self._lambda)
-        np.savetxt("mu-%d.txt"%self._iterations, self._mu)    
+        np.savetxt("mu-%d.txt"%self._iterations, self._mu)
+    
+    def calculategradmu(self, phi, expmu, cts, label):
+        gra_mu = n.zeros(expmu.shape)
+        nphi = (phi.T * cts).T
+        avephi = n.average(nphi, axis = 0)
+        gra_mu[label,:] = avephi
+        N = float(n.sum(cts))
+        #sf_aux = n.zeros((self._C, len(cts)))
+        #sf_aux_prod = n.ones(self._C)
+        sf_aux = np.dot(expmu, phi.T)
+        sf_aux_power = np.power(sf_aux, cts)
+ 
+        sf_aux_prod = np.prod(sf_aux_power, axis = 1) +1e-100
+        kappa_1 = 1.0 / np.sum(sf_aux_prod)
+       
+        sf_pra = np.zeros((self._C, self._K))
+        
+        temp = (sf_aux_prod[:,np.newaxis] / sf_aux)
+        for c in range (0, self._C):
+            temp1 = np.outer(temp[c,:], (1.0/N) * expmu[c,:])
+            temp1 = temp1 * nphi
+            sf_pra[c,:] = np.sum(temp1, axis = 0)
