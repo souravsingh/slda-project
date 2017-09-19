@@ -192,3 +192,11 @@ class sLdaModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
         else:
             separately = separately_explicit
         super(sLdaModel, self).save(fname, ignore=ignore, separately=separately, *args, **kwargs)
+        
+    def accuracy(self, goldlabel):
+        right = 0
+        for d in range(0, self._D):
+            if (self._predictions[d] == goldlabel[d]):
+                right = right + 1
+        accuracy = float(right) / float(self._D)
+        return accuracy 
