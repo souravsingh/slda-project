@@ -199,4 +199,8 @@ class sLdaModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
             if (self._predictions[d] == goldlabel[d]):
                 right = right + 1
         accuracy = float(right) / float(self._D)
-        return accuracy 
+        return accuracy
+    
+    def save_parameters(self):
+        np.savetxt("lambda-%d.txt"%self._iterations, self._lambda)
+        np.savetxt("mu-%d.txt"%self._iterations, self._mu)    
